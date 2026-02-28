@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Game Bingo</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div id="login">
+    <input id="name" placeholder="Your name">
+    <input id="password" placeholder="Admin password (optional)">
+    <button onclick="join()">Join</button>
+</div>
+
+<h1 id="winner"></h1>
+
+<div id="board" class="board"></div>
+
+<div id="resetSection" style="display:none;">
+    <h3>Board Size</h3>
+    <input id="newSize" type="number" min="3" max="5" value="5">
+
+    <h3>Phrases (one per line)</h3>
+    <textarea id="phraseList" rows="6" cols="40"></textarea>
+
+    <button onclick="resetGame()">Reset</button>
+</div>
+
+<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+<script src="/static/script.js"></script>
+
+</body>
+</html>
