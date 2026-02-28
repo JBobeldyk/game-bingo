@@ -45,11 +45,13 @@ phrases = [
 players = {}  # sid -> {name, color, is_admin}
 board = []    # list of dicts: {text, claimed_by}
 winner = None
+tiebreaker = None
 
 
 def generate_board():
-    global board, winner
+    global board, winner, tiebreaker
     winner = None
+    tiebreaker = None
     selected = random.sample(phrases, BOARD_SIZE * BOARD_SIZE)
     board = [{"text": p, "claimed_by": None} for p in selected]
 
@@ -77,10 +79,50 @@ def check_bingo(player_name):
     return False
 
 
-def check_majority(player_name):
-    claimed = [cell["claimed_by"] for cell in board]
-    count = claimed.count(player_name)
-    return count > (BOARD_SIZE * BOARD_SIZE) // 2
+def check_bingo_possible():
+    grid = [board[i:i+BOARD_SIZE] for i in range(0, BOARD_SIZE * BOARD_SIZE, BOARD_SIZE)]
+
+    players = set(
+        cell["claimed_by"]
+        for cell in board
+        if cell["claimed_by"] != tiebreaker
+    )
+
+    def line_is_open_for(player, line):
+        return all(
+            cell["claimed_by"] in (None, player)
+            for cell in line
+        )
+
+    # Check each player for at least one open line
+    for player in players:
+        # rows
+        for row in grid:
+            if line_is_open_for(player, row):
+                return True
+
+        # columns
+        for col in range(BOARD_SIZE):
+            column = [grid[r][col] for r in range(BOARD_SIZE)]
+            if line_is_open_for(player, column):
+                return True
+
+        # diagonals
+        diag1 = [grid[i][i] for i in range(BOARD_SIZE)]
+        diag2 = [grid[i][BOARD_SIZE - i - 1] for i in range(BOARD_SIZE)]
+
+        if line_is_open_for(player, diag1) or line_is_open_for(player, diag2):
+            return True
+        
+    return False
+
+
+def check_majority():
+    count = Counter(cell["claimed_by"] for cell in board)
+    leader_score = count.pop(tiebreaker, 0)
+    unclaimed_score = count.pop(None, 0)
+    next_highest_score = max(count.values(), default=0)
+    return tiebreaker if leader_score >= next_highest_score + unclaimed_score else None
 
 
 @app.route("/")
@@ -107,16 +149,14 @@ def handle_join(data):
         "players": players,
         "winner": winner,
         "size": BOARD_SIZE,
-        "phrases": phrases
+        "phrases": phrases,
+        "tiebreaker": tiebreaker
     }, broadcast=True)
 
 
 @socketio.on("claim")
 def handle_claim(index):
-    global winner
-
-    if winner:
-        return
+    global winner, tiebreaker
 
     if index < 0 or index >= len(board):
         return
@@ -130,15 +170,24 @@ def handle_claim(index):
 
     board[index]["claimed_by"] = player["name"]
 
-    if check_bingo(player["name"]) or check_majority(player["name"]):
-        winner = player["name"]
+    count = Counter(cell["claimed_by"] for cell in board)
+    if not tiebreaker or count.get(player["name"]) > count.get(tiebreaker):
+        tiebreaker = player["name"]
+
+    if not winner:
+        if check_bingo(player["name"]):
+            winner = player["name"]
+        elif not check_bingo_possible():
+            winner = check_majority()
+        
 
     socketio.emit("board_update", {
         "board": board,
         "players": players,
         "winner": winner,
         "size": BOARD_SIZE,
-        "phrases": phrases
+        "phrases": phrases,
+        "tiebreaker": tiebreaker
     })
 
 
@@ -170,7 +219,8 @@ def handle_reset(data):
         "players": players,
         "winner": winner,
         "size": BOARD_SIZE,
-        "phrases": phrases
+        "phrases": phrases,
+        "tiebreaker": tiebreaker
     })
 
 

@@ -16,7 +16,7 @@ socket.on("board_update", data => {
     const size = data.size;
     document.documentElement.style.setProperty('--grid-size', size);
     renderBoard(data.board);
-    renderWinner(data.winner);
+    renderGameState(data.winner, data.tiebreaker);
 
     const me = Object.values(players).find(p => p.name === playerName);
     if (me && me.is_admin) {
@@ -49,12 +49,14 @@ function renderBoard(board) {
     });
 }
 
-function renderWinner(winner) {
-    const winnerEl = document.getElementById("winner");
+function renderGameState(winner, tiebreaker) {
+    const gameStateEl = document.getElementById("gameState");
     if (winner) {
-        winnerEl.innerText = winner + " WINS!";
+        gameStateEl.innerText = winner + " WINS!";
+    } else if (tiebreaker) {
+        gameStateEl.innerText = "Current tiebreaker: " + tiebreaker;
     } else {
-        winnerEl.innerText = "";
+        gameStateEl.innerText = "";
     }
 }
 
